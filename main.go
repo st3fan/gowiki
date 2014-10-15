@@ -17,6 +17,23 @@ const (
 	DEFAULT_PREFIX         = "/"
 )
 
+const header = `<html>
+<link rel="stylesheet" href="https://raw.githubusercontent.com/sindresorhus/github-markdown-css/gh-pages/github-markdown.css">
+<style>
+    .markdown-body {
+        min-width: 200px;
+        max-width: 790px;
+        margin: 0 auto;
+        padding: 30px;
+    }
+</style>
+<article class="markdown-body">
+`
+
+const footer = `
+</article>
+</html>`
+
 type config struct {
 	root string
 }
@@ -47,7 +64,9 @@ func (ctx *context) PageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(header))
 	w.Write(blackfriday.MarkdownCommon(input))
+	w.Write([]byte(footer))
 }
 
 func setupRouter(r *mux.Router, cfg *config) error {
