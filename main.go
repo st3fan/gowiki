@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path"
 )
 
 const (
@@ -15,27 +17,50 @@ const (
 	DEFAULT_PREFIX         = "/"
 )
 
-func PageHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := ioutil.ReadFile("README.md")
+type config struct {
+	root string
+}
+
+type context struct {
+	cfg *config
+}
+
+func (ctx *context) pathForPage(page string) string {
+	path := path.Join(ctx.cfg.root, page+".md")
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+	return path
+}
+
+func (ctx *context) PageHandler(w http.ResponseWriter, r *http.Request) {
+	path := ctx.pathForPage(mux.Vars(r)["page"])
+	if path == "" {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	input, err := ioutil.ReadFile(path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	output := blackfriday.MarkdownCommon(input)
-
 	w.Header().Set("Content-Type", "text/html")
-	w.Write(output)
+	w.Write(blackfriday.MarkdownCommon(input))
 }
 
-func setupRouter(r *mux.Router) error {
-	r.HandleFunc("/{pageName}", PageHandler).Methods("GET")
+func setupRouter(r *mux.Router, cfg *config) error {
+	ctx := &context{cfg: cfg}
+	r.HandleFunc("/{page}", ctx.PageHandler).Methods("GET")
 	return nil
 }
 
 func main() {
+	cfg := &config{root: "/tmp/pages"}
+
 	router := mux.NewRouter()
-	if err := setupRouter(router.PathPrefix(DEFAULT_PREFIX).Subrouter()); err != nil {
+	if err := setupRouter(router.PathPrefix(DEFAULT_PREFIX).Subrouter(), cfg); err != nil {
 		log.Fatal(err)
 	}
 
